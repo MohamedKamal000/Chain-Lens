@@ -20,5 +20,9 @@ done
 cd analyzer
 go get github.com/btcsuite/btcd/wire
 go mod tidy
+cd WebVisualizer
+npm install
+npm install react-tooltip
+cd ..
 cd ..
 echo "Setup complete"

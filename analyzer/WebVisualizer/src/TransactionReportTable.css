@@ -1,0 +1,45 @@
+.transaction-table-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 10px;
+    background-color: #ffffff; /* clean white background */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* soft shadow */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.transaction-table-card h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.2rem;
+    color: #333333; /* dark but not black */
+}
+
+.transaction-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.transaction-table th,
+.transaction-table td {
+    border: 1px solid #e0e0e0; /* subtle borders */
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.95rem;
+    color: #333333;
+}
+
+.transaction-table th {
+    background-color: #f2f2f2; /* light gray header */
+    font-weight: 600;
+}
+
+.transaction-table tbody tr:nth-child(even) {
+    background-color: #fafafa; /* striped rows */
+}
+
+.nested {
+    margin-left: 1rem;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+    color: #555555; /* slightly lighter for nested items */
+}

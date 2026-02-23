@@ -256,7 +256,7 @@ func DecompressScript(r io.Reader) ([]byte, error) {
 	}
 }
 
-func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut)) {
+func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut), singleBlockEnabled bool) {
 	xr, _ := os.ReadFile(xorPath)
 
 	fBlk, err := os.Open(blkPath)
@@ -377,7 +377,9 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 
 		undoUsed[matchIdx] = true
 		callback(bi.block, undos[matchIdx].prevouts)
-		break // for one block output only
+		if singleBlockEnabled {
+			break // for one block output only
+		}
 	}
 
 }
@@ -608,7 +610,7 @@ func processBlock(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) *cli_IO.Bloc
 	return &newBlock
 }
 
-func ProcessBlocks(blkPath, revPath, xorPath string) bool {
+func ProcessBlocks(blkPath, revPath, xorPath string, singleBlockMode bool) bool {
 	callBack := func(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) {
 		processed := processBlock(block, undo)
 		b, err := json.MarshalIndent(processed, "", "  ")
@@ -618,6 +620,6 @@ func ProcessBlocks(blkPath, revPath, xorPath string) bool {
 		fileName := cli_IO.ToJsonFileName(BlockHashReversedHex(processed))
 		cli_IO.WriteTransactionReportToFile(b, "../out"+"/"+fileName)
 	}
-	readBlkRevFiles(blkPath, revPath, xorPath, callBack)
+	readBlkRevFiles(blkPath, revPath, xorPath, callBack, singleBlockMode)
 	return true
 }

@@ -11,8 +11,19 @@ import (
 
 func main() {
 	blockMode := flag.Bool("block", false, "block mode")
+	serverMode := flag.Bool("server", false, "start web server mode")
+	port := flag.String("port", "8080", "port for web server (default: 8080)")
 
 	flag.Parse()
+
+	if *serverMode {
+		//slog.Info("Starting ChainLens API server", "port", *port)
+		if err := StartServer(*port); err != nil {
+			// slog.Error("Server failed to start", "error", err)
+			os.Exit(2)
+		}
+		os.Exit(1)
+	}
 
 	if *blockMode {
 		args := flag.Args()
@@ -24,7 +35,7 @@ func main() {
 		revFile := args[1]
 		xorFile := args[2]
 
-		finished := ProcessBlocks(blkFile, revFile, xorFile)
+		finished := ProcessBlocks(blkFile, revFile, xorFile, true)
 		if !finished {
 			os.Exit(1)
 			// for debugging

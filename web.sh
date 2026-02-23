@@ -11,17 +11,23 @@ set -euo pipefail
 #   - Prints the URL (e.g., http://127.0.0.1:3000) to stdout
 #   - Keeps running until terminated (CTRL+C / SIGTERM)
 #   - Must serve GET /api/health -> 200 { "ok": true }
-#
-# TODO: Replace the stub below with your web server start command.
 ###############################################################################
 
 PORT="${PORT:-3000}"
 
-# TODO: Start your web server here, for example:
-#   exec node server.js
-#   exec python -m http.server "$PORT"
-#   exec cargo run --release -- --port "$PORT"
 
-echo "Error: Web visualizer is not yet implemented" >&2
-echo "Set up your web server to listen on port $PORT" >&2
-exit 1
+cd "$(dirname "$0")/analyzer"
+
+# Build the analyzer if needed
+if [ ! -f chainlens ]; then
+  go build -o chainlens .
+fi
+
+echo "http://127.0.0.1:$PORT"
+# Start Go server in background, suppress output
+./chainlens -server -port "8080" > /dev/null 2>&1 &
+# Start React dev server in background, suppress output
+cd WebVisualizer
+nohup npm run dev > /dev/null 2>&1 &
+# Keep terminal alive until CTRL+C
+while true; do sleep 1; done

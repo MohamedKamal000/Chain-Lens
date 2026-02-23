@@ -1,0 +1,241 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: linear-gradient(135deg,#1c1f26,#2d313a);
+  font-family: 'Segoe UI', sans-serif;
+  color: #f3f3f3;
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: linear-gradient(135deg,#2a2f39,#23272f);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  transition: transform 0.3s ease;
+}
+
+.container:hover {
+  transform: scale(1.01);
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.mode-switch,
+.tx-tabs {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 0.7rem 1.6rem;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg,#007bff,#00c6ff);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,123,255,0.4);
+}
+
+button:disabled {
+  background: #444857;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.tx-tabs button {
+  background: #363a44;
+  border: 1px solid #007bff;
+  color: #e3e6f3;
+}
+
+.tx-tabs button:hover {
+  background: #007bff22;
+}
+
+.tx-tabs .active,
+.mode-switch .active {
+  background: linear-gradient(135deg,#007bff,#00c6ff);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,123,255,0.4);
+}
+
+.card {
+  background: linear-gradient(135deg,#2f3542,#2a2f39);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #444857;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+textarea, input {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #444857;
+  background: #23272f;
+  color: #f3f3f3;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+textarea:focus, input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.story-section {
+  margin-bottom: 0.8rem;
+}
+
+.story-view p {
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.narrative .highlight {
+  color: #ffd54f;
+  font-weight: bold;
+}
+
+.narrative .amount {
+  color: #4dd0e1;
+  font-weight: bold;
+}
+
+.address {
+  color: #81c784;
+  font-weight: bold;
+}
+
+.tooltip-icon {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  background: #007bff;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+
+.tooltip-icon:hover {
+  transform: scale(1.15);
+}
+
+.graph-view {
+  text-align: center;
+  overflow-x: auto;
+}
+
+.graph-view svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.graph-view text {
+  font-family: monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.legend {
+  margin-top: 1rem;
+  font-size: 1rem;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.error {
+  color: #ff6b6b;
+  margin-top: 1rem;
+  font-weight: bold;
+  background: #3a2323;
+  border: 1px solid #ff6b6b;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+}
+
+.result {
+  margin-top: 2rem;
+  background: #23272f;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+.warning {
+  display: inline-block;
+  background: #ff9800;
+  color: #1c1f26;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 6px;
+}
+
+.story-section ul li b {
+  margin-left: 0.3em;
+  color: #ffd54f;
+}
+
+.story-section.narrative p {
+  font-size: 1.05rem;
+}
