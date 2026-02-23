@@ -17,6 +17,8 @@ for gz in fixtures/blocks/*.dat.gz; do
   fi
 done
 
+cd analyzer
 go get github.com/btcsuite/btcd/wire
 go mod tidy
+cd ..
 echo "Setup complete"
