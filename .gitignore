@@ -4,4 +4,5 @@ fixtures/blocks/rev*.dat
 node_modules/
 __pycache__/
 target/
+.idea/*
 .env

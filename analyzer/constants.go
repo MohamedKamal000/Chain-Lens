@@ -1,0 +1,28 @@
+package main
+
+const LockTimeThreshold = 500000000
+const FEE_SATS_THRESHOLD = 1_000_000
+const FEE_RATE_VB_THRESHOLD = 200
+
+const OP_RETURN_SATS_THRESHOLD = 546
+
+const RBF_SIGNALING_THRESHOLD = 0xFFFFFFFE
+
+const SINGLE_TRANSACTION_DIRECTORY = "out/"
+
+const (
+	disableFlag = 1 << 31
+	typeFlag    = 1 << 22
+	mask        = 0x0000ffff
+	timeUnitSec = 512
+)
+
+const (
+	HIGH_FEE = "HIGH_FEE"
+
+	DUST_OUTPUT = "DUST_OUTPUT"
+
+	UNKNOWN_OUTPUT_SCRIPT = "UNKNOWN_OUTPUT_SCRIPT"
+
+	RBF_SIGNALING = "RBF_SIGNALING"
+)

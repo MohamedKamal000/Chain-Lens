@@ -49,6 +49,11 @@ if [[ "${1:-}" == "--block" ]]; then
     fi
   done
 
+#  # Convert to absolute paths before changing directory
+#  BLK_FILE="$(cd "$(dirname "$BLK_FILE")" && pwd)/$(basename "$BLK_FILE")"
+#  REV_FILE="$(cd "$(dirname "$REV_FILE")" && pwd)/$(basename "$REV_FILE")"
+#  XOR_FILE="$(cd "$(dirname "$XOR_FILE")" && pwd)/$(basename "$XOR_FILE")"
+#
   # Create output directory
   mkdir -p out
 
@@ -61,9 +66,11 @@ if [[ "${1:-}" == "--block" ]]; then
   #   6. Identify coinbase, decode BIP34 height
   #   7. Write out/<block_hash>.json for each block
 
-  error_json "NOT_IMPLEMENTED" "Block parsing is not yet implemented"
-  echo "Error: Block parsing is not yet implemented" >&2
-  exit 1
+  cd analyzer
+  go build -o cli_analyzer
+  ./cli_analyzer --block "$BLK_FILE" "$REV_FILE" "$XOR_FILE"
+  exit_code=$?
+  exit $exit_code
 fi
 
 # --- Single-transaction mode ---
@@ -94,6 +101,10 @@ mkdir -p out
 #   7. Build and output JSON report
 #   8. Write to out/<txid>.json and print to stdout
 
-error_json "NOT_IMPLEMENTED" "Transaction parsing is not yet implemented"
-echo "Error: Transaction parsing is not yet implemented" >&2
-exit 1
+#error_json "NOT_IMPLEMENTED" "Transaction parsing is not yet implemented"
+#echo "Error: Transaction parsing is not yet implemented" >&2
+cd analyzer
+go build -o cli_analyzer
+./cli_analyzer $FIXTURE
+exit_code=$?
+exit $exit_code
