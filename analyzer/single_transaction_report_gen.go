@@ -12,46 +12,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-/*
-Field requirements:
-txid: hex string (64 chars), standard display convention.
-wtxid: must be null for non-SegWit transactions.
-fee_rate_sat_vb: JSON number; evaluator accepts small rounding differences (+/-0.01).
-address: required for recognized types (on both inputs and outputs), else null.
-vout[n].n: must equal the output index n (0-based).
-witness: for legacy txs, return [] for each input. For SegWit, return the exact witness stack items in order (hex strings, including empty items as "").
-warnings: order does not matter.
-segwit_savings: must be null for non-SegWit transactions.
-*/
-
-/*
-OP_RETURN payload decoding
-For outputs classified as op_return, add three additional fields:
-
-op_return_data_hex: concatenation of all data pushes after OP_RETURN, in order. If there are no data pushes (bare OP_RETURN), return "".
-op_return_data_utf8: UTF-8 decode of the raw bytes. If the bytes are not valid UTF-8, return null.
-op_return_protocol: detect known protocols by prefix:
-"omni" — data starts with 6f6d6e69 (ASCII "omni")
-"opentimestamps" — data starts with 0109f91102
-"unknown" — anything else (including empty)
-Parsing requirement: OP_RETURN payloads may use any valid push opcode (direct push 0x01-0x4b, OP_PUSHDATA1, OP_PUSHDATA2, OP_PUSHDATA4).
-Your parser must handle all of these, not just assume a single direct push. Multiple push operations after OP_RETURN are concatenated.
-*/
-
-/*
-on error (invalid fixture, malformed tx, inconsistent prevouts, etc.)
-If a prevout is missing, duplicated, or does not correspond to an input outpoint, you must error.
-On errors:
-
-error.code and error.message must be present and non-empty strings.
-Error output (on failures) must be:
-
-{ "ok": false, "error": { "code": "INVALID_TX", "message": "..." } }
-*/
-func validateTransaction() bool {
-	return false
-}
-
 func matchTxIdToPrevOuts(ins []*wire.TxIn, prevOuts []cli_IO.Prevout) (map[string]cli_IO.ValidPrevOut, cli_IO.CliError) {
 	inputPrevOutFreq := make(map[string]int)
 	for _, in := range ins {
@@ -264,7 +224,6 @@ func AddSigWitIfExists(report *cli_IO.TransactionReport, msgTx *wire.MsgTx) {
 }
 
 func constructBaseTransaction(input cli_IO.TransactionInput) (*cli_IO.TransactionReport, cli_IO.CliError) {
-	// validation to determine the OK
 	msgTx, err := decodeRawTransaction(input.RawTx)
 	if err != nil {
 		slog.Error("ErrorDetails happen", err)

@@ -8,8 +8,6 @@ const OP_RETURN_SATS_THRESHOLD = 546
 
 const RBF_SIGNALING_THRESHOLD = 0xFFFFFFFE
 
-const SINGLE_TRANSACTION_DIRECTORY = "out/"
-
 const (
 	disableFlag = 1 << 31
 	typeFlag    = 1 << 22

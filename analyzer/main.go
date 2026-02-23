@@ -25,8 +25,9 @@ func main() {
 		xorFile := args[2]
 
 		finished := ProcessBlocks(blkFile, revFile, xorFile)
-		if finished {
-			slog.Info("Block processing completed successfully.")
+		if !finished {
+			os.Exit(1)
+			// for debugging
 		}
 		os.Exit(0)
 	} else {
@@ -44,7 +45,7 @@ func main() {
 		}
 		fmt.Println(string(b))
 		fileName := cli_IO.ToJsonFileName(tr.Txid)
-		cli_IO.WriteTransactionReportToFile(b, "../"+SINGLE_TRANSACTION_DIRECTORY+fileName)
+		cli_IO.WriteTransactionReportToFile(b, "../out"+"/"+fileName)
 	}
 
 	os.Exit(0)

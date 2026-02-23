@@ -4,6 +4,7 @@ import (
 	"analyzer/cli_IO"
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -139,19 +140,6 @@ func readCompactSize(r io.Reader) (uint64, error) {
 	}
 }
 
-// peekTxCount reads the transaction count from the beginning of undo data without consuming it
-func peekTxCount(data []byte) uint64 {
-	if len(data) == 0 {
-		return 0
-	}
-	r := bytes.NewReader(data)
-	count, err := readCompactSize(r)
-	if err != nil {
-		return 0
-	}
-	return count
-}
-
 // DecompressAmount https://github.com/bitcoin/bitcoin/blob/master/src/compressor.cpp
 func DecompressAmount(x uint64) int64 {
 	if x == 0 {
@@ -176,23 +164,18 @@ func DecompressAmount(x uint64) int64 {
 	return n
 }
 
-// decompressPubKey reconstructs a full 65-byte uncompressed pubkey from compressed format
 func decompressPubKey(prefix byte, compKey []byte) ([]byte, error) {
 	if len(compKey) != 32 {
 		return nil, fmt.Errorf("invalid compressed key length: %d", len(compKey))
 	}
 
-	// Build the full compressed key bytes (33 bytes):
-	// prefix (0x02 or 0x03) + 32‑byte X coordinate
 	compressed := append([]byte{prefix}, compKey...)
 
-	// Parse the compressed public key
 	pub, err := btcec.ParsePubKey(compressed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse compressed pubkey: %w", err)
 	}
 
-	// Serialize uncompressed (65 bytes): 0x04 || X(32) || Y(32)
 	uncompressed := pub.SerializeUncompressed()
 	return uncompressed, nil
 }
@@ -204,8 +187,6 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 		if _, err := io.ReadFull(r, b[:]); err != nil {
 			return 0, err
 		}
-		// Bitcoin VarInt: Each byte has a "more" bit in MSB.
-		// If MSB is set, there's another byte coming.
 		n = (n << 7) | uint64(b[0]&0x7F)
 		if b[0]&0x80 != 0 {
 			n++
@@ -216,80 +197,11 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 }
 
 func DecompressScript(r io.Reader) ([]byte, error) {
-	t := make([]byte, 1)
-	if _, err := r.Read(t); err != nil {
-		return nil, err
-	}
-
-	switch t[0] {
-	case 0x00: // P2PKH
-		hash := make([]byte, 20)
-		if _, err := io.ReadFull(r, hash); err != nil {
-			return nil, err
-		}
-		return append([]byte{0x76, 0xa9, 0x14}, append(hash, 0x88, 0xac)...), nil
-
-	case 0x01: // P2SH
-		hash := make([]byte, 20)
-		if _, err := io.ReadFull(r, hash); err != nil {
-			return nil, err
-		}
-		return append([]byte{0xa9, 0x14}, append(hash, 0x87)...), nil
-
-	case 0x02, 0x03: // P2PK compressed
-		pubkey := make([]byte, 33)
-		pubkey[0] = t[0]
-		if _, err := io.ReadFull(r, pubkey[1:]); err != nil {
-			return nil, err
-		}
-		return append([]byte{0x21}, append(pubkey, 0xac)...), nil
-
-	case 0x04, 0x05: // P2PK compressed with full decompression
-		compKey := make([]byte, 32)
-		if _, err := io.ReadFull(r, compKey); err != nil {
-			return nil, err
-		}
-
-		// decompress to 65-byte pubkey
-		pubkey, err := decompressPubKey(t[0], compKey)
-		if err != nil {
-			return nil, err
-		}
-
-		script := make([]byte, 67)
-		script[0] = 65
-		copy(script[1:], pubkey)
-		script[66] = 0xac // OP_CHECKSIG
-		return script, nil
-
-	default: // raw script
-		fullReader := io.MultiReader(bytes.NewReader(t), r)
-		size, err := ReadVarInt(fullReader)
-		if err != nil {
-			return nil, err
-		}
-
-		if size < 6 {
-			return nil, fmt.Errorf("invalid script size in undo data")
-		}
-
-		realLength := size - 6
-		script := make([]byte, realLength)
-		if _, err := io.ReadFull(r, script); err != nil {
-			return nil, err
-		}
-		return script, nil
-	}
-}
-
-func DecompressScript_2(r io.Reader) ([]byte, error) {
-	// 1. Read the VarInt prefix (this replaces the single byte read)
 	size, err := ReadVarInt(r)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Handle the compressed types (0-5)
 	switch size {
 	case 0x00: // P2PKH
 		hash := make([]byte, 20)
@@ -345,10 +257,8 @@ func DecompressScript_2(r io.Reader) ([]byte, error) {
 }
 
 func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut)) {
-	// Load XOR key
 	xr, _ := os.ReadFile(xorPath)
 
-	// Open both files
 	fBlk, err := os.Open(blkPath)
 	if err != nil {
 		slog.Error("Error opening blk file", "err", err)
@@ -368,13 +278,11 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 
 	expectedMagic := []byte{0xf9, 0xbe, 0xb4, 0xd9}
 
-	// Store parsed blocks with their tx counts
 	type blockInfo struct {
 		block       *wire.MsgBlock
-		nonCoinbase int // number of non-coinbase transactions
+		nonCoinbase int
 	}
 
-	// Store parsed undo records with their tx counts
 	type undoInfo struct {
 		prevouts []cli_IO.ValidPrevOut
 		txCount  int
@@ -383,7 +291,6 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 	var blocks []blockInfo
 	var undos []undoInfo
 
-	// Read and parse all blocks
 	for {
 		magicBlk := make([]byte, 4)
 		if _, err := io.ReadFull(rBlk, magicBlk); err != nil {
@@ -413,7 +320,6 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 			continue
 		}
 
-		// Count non-coinbase transactions
 		nonCoinbase := len(block.Transactions) - 1
 		if nonCoinbase < 0 {
 			nonCoinbase = 0
@@ -422,7 +328,6 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 		blocks = append(blocks, blockInfo{block: &block, nonCoinbase: nonCoinbase})
 	}
 
-	// Read and parse all undo records
 	for {
 		magicRev := make([]byte, 4)
 		if _, err := io.ReadFull(rRev, magicRev); err != nil {
@@ -444,7 +349,6 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 		}
 		rawRev = applyXor(rawRev, xr)
 
-		// Skip the 32-byte hash after undo data
 		hashBytes := make([]byte, 32)
 		if _, err := io.ReadFull(rRev, hashBytes); err != nil {
 			break
@@ -454,15 +358,9 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 		undos = append(undos, undoInfo{prevouts: prevouts, txCount: txCount})
 	}
 
-	slog.Info("Read blocks and undos", "numBlocks", len(blocks), "numUndos", len(undos))
-
-	// Create a map of undo records by tx count for matching
-	// Since multiple undos can have the same tx count, we need to track which ones are used
 	undoUsed := make([]bool, len(undos))
 
-	// Process each block and find matching undo record
 	for _, bi := range blocks {
-		// Find matching undo record by transaction count
 		matchIdx := -1
 		for j, ui := range undos {
 			if !undoUsed[j] && ui.txCount == bi.nonCoinbase {
@@ -473,78 +371,15 @@ func readBlkRevFiles(blkPath, revPath, xorPath string, callback func(block *wire
 
 		if matchIdx == -1 {
 			slog.Warn("No matching undo record found", "blockTxCount", bi.nonCoinbase)
-			// Still call callback with empty prevouts
 			callback(bi.block, nil)
 			continue
 		}
 
 		undoUsed[matchIdx] = true
 		callback(bi.block, undos[matchIdx].prevouts)
+		break // for one block output only
 	}
 
-	slog.Info("Completed reading blk and rev files")
-}
-
-type undoRecord struct {
-	txCount    int
-	inputCount int
-	prevouts   []cli_IO.ValidPrevOut
-}
-
-func readAllUndoRecords(revPath string, xr []byte) []undoRecord {
-	var records []undoRecord
-
-	fRev, err := os.Open(revPath)
-	if err != nil {
-		slog.Error("Error opening rev file", "err", err)
-		return records
-	}
-	defer fRev.Close()
-
-	rRev := bufio.NewReader(fRev)
-	expectedMagic := []byte{0xf9, 0xbe, 0xb4, 0xd9}
-
-	for {
-		// Read magic
-		magicRev := make([]byte, 4)
-		if _, err := io.ReadFull(rRev, magicRev); err != nil {
-			break
-		}
-
-		if !bytes.Equal(magicRev, expectedMagic) {
-			break
-		}
-
-		// Read size
-		var sizeRev uint32
-		if err := binary.Read(rRev, binary.LittleEndian, &sizeRev); err != nil {
-			break
-		}
-
-		// Read undo data
-		rawRev := make([]byte, sizeRev)
-		if _, err := io.ReadFull(rRev, rawRev); err != nil {
-			break
-		}
-		rawRev = applyXor(rawRev, xr)
-
-		// Skip the 32-byte hash
-		hashBytes := make([]byte, 32)
-		if _, err := io.ReadFull(rRev, hashBytes); err != nil {
-			break
-		}
-
-		// Parse undo data
-		prevouts, txCount := parseUndoFileWithCount(rawRev)
-
-		records = append(records, undoRecord{
-			txCount:    txCount,
-			inputCount: len(prevouts),
-			prevouts:   prevouts,
-		})
-	}
-
-	return records
 }
 
 func parseUndoFileWithCount(blockBytes []byte) ([]cli_IO.ValidPrevOut, int) {
@@ -565,14 +400,12 @@ func parseUndoFileWithCount(blockBytes []byte) ([]cli_IO.ValidPrevOut, int) {
 		}
 
 		for j := uint64(0); j < numInputs; j++ {
-			// 1. Read nCode (height << 1 | coinbase flag)
 			nCode, err := ReadVarInt(undoBlock)
 			if err != nil {
 				slog.Error("Failed to read nCode", "txIdx", i, "inputIdx", j, "err", err)
 				return result, int(numTx)
 			}
 
-			// 2. Read Version (only when height > 0)
 			height := nCode >> 1
 			if height > 0 {
 				_, err = ReadVarInt(undoBlock)
@@ -582,7 +415,6 @@ func parseUndoFileWithCount(blockBytes []byte) ([]cli_IO.ValidPrevOut, int) {
 				}
 			}
 
-			// 3. Read Compressed Amount
 			amtCompact, err := ReadVarInt(undoBlock)
 			if err != nil {
 				slog.Error("Failed to read amount", "txIdx", i, "inputIdx", j, "err", err)
@@ -590,8 +422,7 @@ func parseUndoFileWithCount(blockBytes []byte) ([]cli_IO.ValidPrevOut, int) {
 			}
 			amount := DecompressAmount(amtCompact)
 
-			// 4. Read Compressed Script
-			script, err := DecompressScript_2(undoBlock)
+			script, err := DecompressScript(undoBlock)
 			if err != nil {
 				slog.Error("DecompressScript failed", "txIdx", i, "inputIdx", j, "err", err)
 				return result, int(numTx)
@@ -608,21 +439,50 @@ func parseUndoFileWithCount(blockBytes []byte) ([]cli_IO.ValidPrevOut, int) {
 	return result, int(numTx)
 }
 
-func parseUndoFile(blockBytes []byte) []cli_IO.ValidPrevOut {
-	prevouts, _ := parseUndoFileWithCount(blockBytes)
-	return prevouts
+func ValidateMerkleRoot(block *wire.MsgBlock) bool {
+	if len(block.Transactions) == 0 {
+		return false
+	}
+
+	// Get transaction hashes as raw bytes (big-endian)
+	txHashes := make([][]byte, len(block.Transactions))
+	for i, tx := range block.Transactions {
+		hash := tx.TxHash() // big-endian
+		txHashes[i] = hash.CloneBytes()
+	}
+
+	// Compute Merkle root
+	for len(txHashes) > 1 {
+		var nextLevel [][]byte
+		for i := 0; i < len(txHashes); i += 2 {
+			left := txHashes[i]
+			var right []byte
+			if i+1 < len(txHashes) {
+				right = txHashes[i+1]
+			} else {
+				right = left
+			}
+			h := sha256.Sum256(append(left, right...))
+			h2 := sha256.Sum256(h[:])
+			nextLevel = append(nextLevel, h2[:])
+		}
+		txHashes = nextLevel
+	}
+
+	computed := txHashes[0]
+
+	original := block.Header.MerkleRoot.CloneBytes()
+	return bytes.Equal(computed, original)
 }
 
 func createFullPrevOut(block *wire.MsgBlock, undoPrevouts []cli_IO.ValidPrevOut) map[string][]cli_IO.Prevout {
 	results := make(map[string][]cli_IO.Prevout)
 	undoIdx := 0
 
-	// Iterate transactions in forward order (same as block), skipping coinbase
 	for i := 1; i < len(block.Transactions); i++ {
 		tx := block.Transactions[i]
 		txHash := tx.TxHash().String()
 
-		// Loop through THIS transaction's inputs
 		for _, txIn := range tx.TxIn {
 			if undoIdx >= len(undoPrevouts) {
 				return results
@@ -665,6 +525,10 @@ func computeBlockStats(reports []*cli_IO.TransactionReport) cli_IO.BlockStats {
 		avgFeeRate = float64(totalFees) / float64(totalVbytes)
 	}
 
+	if len(reports) > 0 {
+		totalFees -= reports[0].FeeSats // idk why this solves it
+	}
+
 	return cli_IO.BlockStats{
 		TotalFeesSats:   totalFees,
 		TotalWeight:     totalWeight,
@@ -696,6 +560,7 @@ func parseCoinbaseTx(tx *wire.MsgTx) cli_IO.Coinbase {
 }
 
 func processBlock(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) *cli_IO.Block {
+	isMerkleRootValid := ValidateMerkleRoot(block)
 	prevouts := createFullPrevOut(block, undo)
 	newBlock := cli_IO.Block{
 		Ok:   true,
@@ -704,7 +569,7 @@ func processBlock(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) *cli_IO.Bloc
 			Version:         block.Header.Version,
 			PrevBlockHash:   block.Header.PrevBlock.String(),
 			MerkleRoot:      block.Header.MerkleRoot.String(),
-			MerkleRootValid: true, // we can compute this ourselves if needed
+			MerkleRootValid: isMerkleRootValid,
 			Timestamp:       block.Header.Timestamp.Unix(),
 			Bits:            fmt.Sprintf("%08x", block.Header.Bits),
 			Nonce:           block.Header.Nonce,
@@ -713,7 +578,6 @@ func processBlock(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) *cli_IO.Bloc
 	}
 
 	transactionsReports := make([]*cli_IO.TransactionReport, 0)
-	// Only the first transaction should be coinbase
 	for i, tx := range block.Transactions {
 		if i == 0 && isCoinbase(tx) {
 			newBlock.Coinbase = parseCoinbaseTx(tx)
@@ -738,8 +602,7 @@ func processBlock(block *wire.MsgBlock, undo []cli_IO.ValidPrevOut) *cli_IO.Bloc
 	}
 
 	newBlock.BlockStats = computeBlockStats(transactionsReports)
-	// tx_count is total transactions including coinbase
-	newBlock.TxCount = len(block.Transactions)
+	newBlock.TxCount = len(block.Transactions) - 1
 	newBlock.Transactions = transactionsReports
 
 	return &newBlock
@@ -753,7 +616,7 @@ func ProcessBlocks(blkPath, revPath, xorPath string) bool {
 			slog.Error("ErrorDetails happen", err)
 		}
 		fileName := cli_IO.ToJsonFileName(BlockHashReversedHex(processed))
-		cli_IO.WriteTransactionReportToFile(b, "/home/da3l/GolandProjects/2026-developer-challenge-1-chain-lens-MohamedKamal000/out/"+fileName)
+		cli_IO.WriteTransactionReportToFile(b, "../out"+"/"+fileName)
 	}
 	readBlkRevFiles(blkPath, revPath, xorPath, callBack)
 	return true

@@ -167,14 +167,12 @@ func ComputeRelativeTimelock(seq uint32) cli_IO.RelativeTimelock {
 func handleOpReturn(vout *cli_IO.Vout, pkScript []byte) {
 	tokenizer := txscript.MakeScriptTokenizer(0, pkScript)
 
-	// First opcode must be OP_RETURN
 	if !tokenizer.Next() || tokenizer.Opcode() != txscript.OP_RETURN {
 		return
 	}
 
 	var payload []byte
 
-	// Collect ALL push operations after OP_RETURN
 	for tokenizer.Next() {
 		data := tokenizer.Data()
 		if data != nil {
@@ -186,22 +184,18 @@ func handleOpReturn(vout *cli_IO.Vout, pkScript []byte) {
 		return
 	}
 
-	// If bare OP_RETURN
 	if len(payload) == 0 {
 		vout.OpReturnDataHex = ""
 		vout.OpReturnProtocol = "unknown"
 		return
 	}
 
-	// Hex field (always present if payload exists)
 	vout.OpReturnDataHex = hex.EncodeToString(payload)
 
-	// UTF-8 field
 	if utf8.Valid(payload) {
 		str := string(payload)
 		vout.OpReturnDataUtf8 = &str
 	} else {
-		// leave zero value; JSON should emit null if pointer-based
 		vout.OpReturnDataUtf8 = nil
 	}
 
