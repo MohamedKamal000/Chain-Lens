@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	if *serverMode {
-		//slog.Info("Starting ChainLens API server", "port", *port)
+		slog.Info("Starting ChainLens API server", "port", *port)
 		if err := StartServer(*port); err != nil {
 			// slog.Error("Server failed to start", "error", err)
 			os.Exit(2)
