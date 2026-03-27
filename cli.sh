@@ -91,7 +91,6 @@ fi
 # Create output directory
 mkdir -p out
 
-# TODO: Implement transaction parsing
 #   1. Read fixture JSON (network, raw_tx, prevouts)
 #   2. Parse raw_tx hex (version, inputs, outputs, witness, locktime)
 #   3. Match prevouts to inputs by (txid, vout)
